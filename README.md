@@ -100,8 +100,4 @@ data are included.
 
 - Schedule automated weekly reports
 - Generate reports for multiple accounts
-- Store historical engagement metrics
-- Add trend analysis
-- Add Slack/Microsoft Teams notifications
-- Add customer health scoring
-- Build a Customer Success dashboard
+
