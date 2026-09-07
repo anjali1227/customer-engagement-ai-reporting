@@ -51,7 +51,10 @@ The AI Agent evaluates:
 
 ## Example Output
 
-Screenshots attached
+<img width="464" height="332" alt="Screenshot 2026-09-07 155226" src="https://github.com/user-attachments/assets/a0ed2e23-8e7b-43a2-9c50-80a46b0135c3" />
+<img width="427" height="276" alt="Screenshot 2026-09-07 155247" src="https://github.com/user-attachments/assets/47d22d92-ee8d-45f5-a580-c1199fd2e962" />
+
+
 
 ## Tech Stack
 
