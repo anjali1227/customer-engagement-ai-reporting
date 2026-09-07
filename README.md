@@ -15,7 +15,8 @@ directly via email.
 
 ## Workflow
 
-![Workflow](Screenshot 2026-09-07 155448.png)
+<img width="770" height="371" alt="Screenshot 2026-09-07 155448" src="https://github.com/user-attachments/assets/0ab41ed2-46c3-43c4-bcd5-d3a832000bdb" />
+
 
 Manual Trigger
 → Data Input
