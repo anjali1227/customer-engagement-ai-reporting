@@ -15,7 +15,7 @@ directly via email.
 
 ## Workflow
 
-![Workflow](screenshots/n8n-workflow.png)
+![Workflow](Screenshot 2026-09-07 155448.png)
 
 Manual Trigger
 → Data Input
