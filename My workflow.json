@@ -1,0 +1,198 @@
+{
+"name": "My workflow",
+"nodes": [
+{
+"parameters": {},
+"type": "n8n-nodes-base.manualTrigger",
+"typeVersion": 1,
+"position": [160, 0],
+"id": "REPLACE_MANUAL_TRIGGER_NODE_ID",
+"name": "When clicking ‘Execute workflow’"
+},
+{
+"parameters": {
+"documentId": {
+"__rl": true,
+"value": "YOUR_GOOGLE_SHEET_ID",
+"mode": "list",
+"cachedResultName": "YOUR_SHEET_NAME",
+"cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit"
+},
+"sheetName": {
+"__rl": true,
+"value": "YOUR_GOOGLE_SHEET_GID",
+"mode": "list",
+"cachedResultName": "YOUR_ACCOUNT_SHEET_NAME",
+"cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=YOUR_GOOGLE_SHEET_GID"
+},
+"options": {}
+},
+"type": "n8n-nodes-base.googleSheets",
+"typeVersion": 4.7,
+"position": [304, 0],
+"id": "REPLACE_GOOGLE_SHEETS_NODE_ID",
+"name": "Get row(s) in sheet",
+"credentials": {
+"googleSheetsOAuth2Api": {
+"id": "YOUR_GOOGLE_SHEETS_CREDENTIAL_ID",
+"name": "YOUR_GOOGLE_SHEETS_CREDENTIAL_NAME"
+}
+}
+},
+{
+"parameters": {
+"jsCode": "// Get all rows from Google Sheets\nconst rows = $input.all().map(item => item.json);\n\n// ------------------------------------\n// 1. BASIC EMAIL METRICS\n// ------------------------------------\n\nconst emailsSent = rows.length;\n\nconst uniqueUsers = new Set(\n  rows\n    .map(row => row["User Email"])\n    .filter(Boolean)\n);\n\nconst uniqueUserCount = uniqueUsers.size;\n\nconst emailsOpened = rows.filter(row =>\n  String(row["Email Opened"] ?? "")\n    .trim()\n    .toLowerCase() === "yes"\n).length;\n\nconst openRate = emailsSent > 0\n  ? (emailsOpened / emailsSent) * 100\n  : 0;\n\n// ------------------------------------\n// 2. UNIQUE UNSUBSCRIBED USERS\n// ------------------------------------\n\nconst unsubscribedUsers = new Set(\n  rows\n    .filter(row =>\n      String(row["Unsubscribed"] ?? "")\n        .trim()\n        .toLowerCase() === "yes"\n    )\n    .map(row => row["User Email"])\n    .filter(Boolean)\n);\n\nconst unsubscribeCount = unsubscribedUsers.size;\n\nconst unsubscribeRate = uniqueUserCount > 0\n  ? (unsubscribeCount / uniqueUserCount) * 100\n  : 0;\n\n// ------------------------------------\n// 3. CATEGORY PERFORMANCE\n// ------------------------------------\n\nconst categoryStats = {};\n\nfor (const row of rows) {\n  const category = String(\n    row["Category sent"] ?? "Unknown"\n  ).trim() || "Unknown";\n\n  if (!categoryStats[category]) {\n    categoryStats[category] = {\n      sent: 0,\n      opened: 0\n    };\n  }\n\n  categoryStats[category].sent++;\n\n  if (\n    String(row["Email Opened"] ?? "")\n      .trim()\n      .toLowerCase() === "yes"\n  ) {\n    categoryStats[category].opened++;\n  }\n}\n\nconst categoryPerformance = Object.entries(categoryStats).map(\n  ([category, stats]) => {\n    const categoryOpenRate = stats.sent > 0\n      ? (stats.opened / stats.sent) * 100\n      : 0;\n\n    return {\n      category: category,\n      emails_sent: stats.sent,\n      emails_opened: stats.opened,\n      open_rate: Number(categoryOpenRate.toFixed(2))\n    };\n  }\n);\n\ncategoryPerformance.sort(\n  (a, b) => b.open_rate - a.open_rate\n);\n\n// ------------------------------------\n// 4. ACCOUNT NAME\n// ------------------------------------\n\nconst account =\n  rows[0]?.["Organisation"] ||\n  rows[0]?.["Company"] ||\n  "Unknown";\n\n// ------------------------------------\n// 5. FINAL OUTPUT\n// ------------------------------------\n\nreturn [\n  {\n    json: {\n      account: account,\n      emails_sent: emailsSent,\n      unique_users: uniqueUserCount,\n      emails_opened: emailsOpened,\n      open_rate: Number(openRate.toFixed(2)),\n      unsubscribes: unsubscribeCount,\n      unsubscribe_rate: Number(unsubscribeRate.toFixed(2)),\n      category_performance: categoryPerformance\n    }\n  }\n];"
+},
+"type": "n8n-nodes-base.code",
+"typeVersion": 2,
+"position": [448, 0],
+"id": "REPLACE_METRICS_CODE_NODE_ID",
+"name": "Code in JavaScript"
+},
+{
+"parameters": {
+"promptType": "define",
+"text": "=You are a Customer Engagement Analytics Agent for a Customer Success team.\n\nAnalyze the customer engagement metrics provided below.\n\nDATA:\n{{ JSON.stringify($json) }}\n\nYour task is to:\n\n1. Evaluate the overall engagement level.\n2. Analyze the email open rate.\n3. Identify the best-performing content category based on open rate.\n4. Identify the weakest-performing content category based on open rate.\n5. Analyze unsubscribe activity.\n6. Identify the most important business insight.\n7. Recommend practical actions for the Customer Success team.\n\nRules:\n- Use ONLY the data provided.\n- Do not invent or estimate numbers.\n- Do not mention individual user names or email addresses.\n- Do not claim causation unless supported by the data.\n- Do not compare this account with other accounts because only one account is currently provided.\n- Keep the analysis concise.\n- Do not repeat the input data unnecessarily.\n\nReturn ONLY valid JSON.\n\nUse exactly this structure:\n\n{\n  "account": "ACCOUNT_NAME",\n  "health": "Watch",\n  "open_rate": 68.5,\n  "best_performing_category": {\n    "category": "CATEGORY_NAME",\n    "open_rate": 100\n  },\n  "weakest_performing_category": {\n    "category": "CATEGORY_NAME",\n    "open_rate": 0\n  },\n  "unsubscribe_insight": "Short insight.",\n  "key_insight": "1-2 concise sentences.",\n  "recommended_actions": [\n    "Action 1.",\n    "Action 2."\n  ]\n}\n\nDo not use markdown.\nDo not use code fences.\nDo not add any text before or after the JSON."
+},
+"type": "@n8n/n8n-nodes-langchain.agent",
+"typeVersion": 3.1,
+"position": [592, 0],
+"id": "REPLACE_AI_AGENT_NODE_ID",
+"name": "AI Agent"
+},
+{
+"parameters": {
+"model": {
+"__rl": true,
+"mode": "list",
+"value": "gpt-5-mini"
+},
+"builtInTools": {},
+"options": {}
+},
+"type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+"typeVersion": 1.3,
+"position": [544, 208],
+"id": "REPLACE_OPENAI_MODEL_NODE_ID",
+"name": "OpenAI Chat Model",
+"credentials": {
+"openAiApi": {
+"id": "YOUR_OPENAI_CREDENTIAL_ID",
+"name": "YOUR_OPENAI_CREDENTIAL_NAME"
+}
+}
+},
+{
+"parameters": {
+"sendTo": "YOUR_EMAIL_ADDRESS",
+"subject": "Customer Engagement Report – {{ACCOUNT_NAME}}",
+"message": "={{ $json.html }}",
+"options": {}
+},
+"type": "n8n-nodes-base.gmail",
+"typeVersion": 2.2,
+"position": [1008, 0],
+"id": "REPLACE_GMAIL_NODE_ID",
+"name": "Send a message",
+"webhookId": "YOUR_WEBHOOK_ID",
+"credentials": {
+"gmailOAuth2": {
+"id": "YOUR_GMAIL_CREDENTIAL_ID",
+"name": "YOUR_GMAIL_CREDENTIAL_NAME"
+}
+}
+},
+{
+"parameters": {
+"jsCode": "const data = JSON.parse($json.output);\n\nconst health = data.health;\n\nlet healthColor = "#6c757d";\nlet healthEmoji = "🟡";\n\nif (health === "Healthy") {\n  healthColor = "#198754";\n  healthEmoji = "🟢";\n} else if (health === "At Risk") {\n  healthColor = "#dc3545";\n  healthEmoji = "🔴";\n} else if (health === "Watch") {\n  healthColor = "#fd7e14";\n  healthEmoji = "🟡";\n}\n\nconst actions = data.recommended_actions\n  .map(action => `\n    <li style=\"margin-bottom: 10px;\">\n      ${action}\n    </li>\n  `)\n  .join("");\n\nconst html = `\n<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"UTF-8\">\n</head>\n<body style=\"\n  margin:0;\n  padding:0;\n  background-color:#f4f6f8;\n  font-family:Arial, Helvetica, sans-serif;\n  color:#202124;\n\">\n\n<div style=\"\n  max-width:700px;\n  margin:30px auto;\n  background:#ffffff;\n  border-radius:12px;\n  overflow:hidden;\n  box-shadow:0 2px 10px rgba(0,0,0,0.08);\n\">\n\n  <div style=\"\n    background:#1f2937;\n    color:white;\n    padding:24px 30px;\n  \">\n    <div style=\"\n      font-size:13px;\n      text-transform:uppercase;\n      letter-spacing:1px;\n      opacity:0.75;\n    \">\n      Customer Success\n    </div>\n\n    <div style=\"\n      font-size:26px;\n      font-weight:bold;\n      margin-top:6px;\n    \">\n      Customer Engagement Report\n    </div>\n\n    <div style=\"\n      font-size:16px;\n      margin-top:8px;\n      opacity:0.9;\n    \">\n      ${data.account}\n    </div>\n  </div>\n\n  <div style=\"padding:25px 30px 10px 30px;\">\n    <div style=\"\n      font-size:13px;\n      color:#6b7280;\n      text-transform:uppercase;\n      letter-spacing:0.5px;\n    \">\n      Account Health\n    </div>\n\n    <div style=\"\n      display:inline-block;\n      margin-top:8px;\n      padding:7px 14px;\n      border-radius:20px;\n      background:${healthColor};\n      color:white;\n      font-weight:bold;\n      font-size:14px;\n    \">\n      ${healthEmoji} ${health}\n    </div>\n  </div>\n\n  <div style=\"padding:20px 30px; display:flex;\">\n    <div style=\"\n      flex:1;\n      background:#f8f9fa;\n      border-radius:10px;\n      padding:18px;\n      text-align:center;\n    \">\n      <div style=\"font-size:13px; color:#6b7280;\">\n        EMAIL OPEN RATE\n      </div>\n\n      <div style=\"\n        font-size:32px;\n        font-weight:bold;\n        margin-top:5px;\n      \">\n        ${data.open_rate}%\n      </div>\n    </div>\n  </div>\n\n  <div style=\"padding:10px 30px;\">\n    <div style=\"\n      font-size:18px;\n      font-weight:bold;\n      margin-bottom:15px;\n    \">\n      Content Performance\n    </div>\n\n    <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">\n      <tr>\n        <td style=\"\n          width:50%;\n          padding:18px;\n          background:#f8f9fa;\n          border-radius:10px;\n        \">\n          <div style=\"\n            font-size:12px;\n            color:#6b7280;\n            text-transform:uppercase;\n          \">\n            Best Performing\n          </div>\n\n          <div style=\"\n            font-size:17px;\n            font-weight:bold;\n            margin-top:8px;\n          \">\n            🏆 ${data.best_performing_category.category}\n          </div>\n\n          <div style=\"font-size:14px; margin-top:5px;\">\n            ${data.best_performing_category.open_rate}% open rate\n          </div>\n        </td>\n\n        <td style=\"width:15px;\"></td>\n\n        <td style=\"\n          width:50%;\n          padding:18px;\n          background:#f8f9fa;\n          border-radius:10px;\n        \">\n          <div style=\"\n            font-size:12px;\n            color:#6b7280;\n            text-transform:uppercase;\n          \">\n            Weakest Performing\n          </div>\n\n          <div style=\"\n            font-size:17px;\n            font-weight:bold;\n            margin-top:8px;\n          \">\n            ⚠️ ${data.weakest_performing_category.category}\n          </div>\n\n          <div style=\"font-size:14px; margin-top:5px;\">\n            ${data.weakest_performing_category.open_rate}% open rate\n          </div>\n        </td>\n      </tr>\n    </table>\n  </div>\n\n  <div style=\"padding:25px 30px 10px 30px;\">\n    <div style=\"\n      font-size:18px;\n      font-weight:bold;\n      margin-bottom:12px;\n    \">\n      Unsubscribe Insight\n    </div>\n\n    <div style=\"\n      background:#fff8f0;\n      border-left:4px solid #fd7e14;\n      padding:15px;\n      font-size:14px;\n      line-height:1.6;\n    \">\n      ${data.unsubscribe_insight}\n    </div>\n  </div>\n\n  <div style=\"padding:25px 30px 10px 30px;\">\n    <div style=\"\n      font-size:18px;\n      font-weight:bold;\n      margin-bottom:12px;\n    \">\n      💡 Key Insight\n    </div>\n\n    <div style=\"\n      font-size:15px;\n      line-height:1.7;\n      color:#374151;\n    \">\n      ${data.key_insight}\n    </div>\n  </div>\n\n  <div style=\"padding:25px 30px 30px 30px;\">\n    <div style=\"\n      font-size:18px;\n      font-weight:bold;\n      margin-bottom:12px;\n    \">\n      Recommended Actions\n    </div>\n\n    <ul style=\"\n      padding-left:20px;\n      margin-top:10px;\n      font-size:14px;\n      line-height:1.6;\n      color:#374151;\n    \">\n      ${actions}\n    </ul>\n  </div>\n\n  <div style=\"\n    background:#f8f9fa;\n    padding:16px 30px;\n    font-size:12px;\n    color:#6b7280;\n    text-align:center;\n  \">\n    Automated Customer Engagement Report · Generated with n8n\n  </div>\n\n</div>\n\n</body>\n</html>\n`;\n\nreturn [\n  {\n    json: {\n      account: data.account,\n      subject: `Customer Engagement Report – ${data.account}`,\n      html: html\n    }\n  }\n];"
+},
+"type": "n8n-nodes-base.code",
+"typeVersion": 2,
+"position": [864, 0],
+"id": "REPLACE_HTML_CODE_NODE_ID",
+"name": "Code in JavaScript1"
+}
+],
+"pinData": {},
+"connections": {
+"When clicking ‘Execute workflow’": {
+"main": [
+[
+{
+"node": "Get row(s) in sheet",
+"type": "main",
+"index": 0
+}
+]
+]
+},
+"Get row(s) in sheet": {
+"main": [
+[
+{
+"node": "Code in JavaScript",
+"type": "main",
+"index": 0
+}
+]
+]
+},
+"Code in JavaScript": {
+"main": [
+[
+{
+"node": "AI Agent",
+"type": "main",
+"index": 0
+}
+]
+]
+},
+"OpenAI Chat Model": {
+"ai_languageModel": [
+[
+{
+"node": "AI Agent",
+"type": "ai_languageModel",
+"index": 0
+}
+]
+]
+},
+"AI Agent": {
+"main": [
+[
+{
+"node": "Code in JavaScript1",
+"type": "main",
+"index": 0
+}
+]
+]
+},
+"Code in JavaScript1": {
+"main": [
+[
+{
+"node": "Send a message",
+"type": "main",
+"index": 0
+}
+]
+]
+}
+},
+"active": false,
+"settings": {
+"executionOrder": "v1",
+"binaryMode": "separate"
+},
+"versionId": "REPLACE_WORKFLOW_VERSION_ID",
+"meta": {
+"templateCredsSetupCompleted": false,
+"instanceId": "REPLACE_N8N_INSTANCE_ID"
+},
+"nodeGroups": [],
+"id": "REPLACE_WORKFLOW_ID",
+"tags": []
+}
